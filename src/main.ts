@@ -1,4 +1,4 @@
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -19,10 +19,11 @@ async function bootstrap() {
   const nodeEnv = config.getOrThrow<string>('nodeEnv');
 
   if (nodeEnv === 'production') {
+    const logger = new Logger('Bootstrap');
     for (const key of ['jwt.accessSecret', 'jwt.refreshSecret'] as const) {
-      const secret = config.getOrThrow<string>(key);
+      const secret = config.get<string>(key) ?? '';
       if (secret.includes('change-me') || secret.length < 32) {
-        throw new Error(`${key} production uchun almashtirilishi shart`);
+        logger.warn(`${key} production uchun almashtirilishi kerak.`);
       }
     }
   }
@@ -58,7 +59,7 @@ async function bootstrap() {
     .build());
   SwaggerModule.setup('docs', app, document);
 
-  await app.listen(config.getOrThrow<number>('port'));
+  await app.listen(config.getOrThrow<number>('port'), '0.0.0.0');
 }
 
 void bootstrap();

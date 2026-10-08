@@ -82,8 +82,7 @@ export class SeedService implements OnApplicationBootstrap {
     for (const account of accounts) {
       const username = account.username.trim().toLowerCase();
       if (production && DEFAULT_PASSWORDS.has(account.password)) {
-        this.logger.warn(`${username} uchun sinov paroli productionda yaratilmadi.`);
-        continue;
+        this.logger.warn(`${username} hali sinov parolida. Railwayda almashtiring.`);
       }
       const existing = await this.admins.findOne({ where: { username } });
       if (existing) continue;

@@ -28,21 +28,41 @@ function upstream(
   };
 }
 
+function fromConnectionUrl(raw: string, synchronize: boolean, source: string) {
+  const parsed = new URL(raw.trim().replace(/^["']|["']$/g, ''));
+  const host = parsed.hostname;
+  const internal = host.endsWith('.internal');
+  return {
+    host,
+    port: parseInt(parsed.port || '5432', 10),
+    username: decodeURIComponent(parsed.username),
+    password: decodeURIComponent(parsed.password),
+    database: decodeURIComponent(parsed.pathname.replace(/^\//, '')),
+    synchronize,
+    ssl: !internal,
+    source,
+  };
+}
+
 function databaseSettings(env: NodeJS.ProcessEnv) {
   const synchronize = env.DB_SYNCHRONIZE !== 'false';
-  const connectionUrl = env.DATABASE_URL?.trim();
-  if (connectionUrl) {
-    const parsed = new URL(connectionUrl);
-    const host = parsed.hostname;
-    const internal = host.endsWith('.railway.internal');
+  const connectionUrl = env.DATABASE_URL?.trim() || env.DATABASE_PUBLIC_URL?.trim();
+  if (connectionUrl?.includes('://')) {
+    return fromConnectionUrl(connectionUrl, synchronize, env.DATABASE_URL?.trim() ? 'DATABASE_URL' : 'DATABASE_PUBLIC_URL');
+  }
+
+  if (env.PGHOST && env.PGUSER && env.PGPASSWORD) {
+    const host = env.PGHOST;
+    const internal = host.endsWith('.internal');
     return {
       host,
-      port: parseInt(parsed.port || '5432', 10),
-      username: decodeURIComponent(parsed.username),
-      password: decodeURIComponent(parsed.password),
-      database: decodeURIComponent(parsed.pathname.replace(/^\//, '')),
+      port: parseInt(env.PGPORT || '5432', 10),
+      username: env.PGUSER,
+      password: env.PGPASSWORD,
+      database: env.PGDATABASE || env.POSTGRES_DB || 'railway',
       synchronize,
       ssl: !internal,
+      source: 'PGHOST',
     };
   }
 
@@ -54,6 +74,7 @@ function databaseSettings(env: NodeJS.ProcessEnv) {
     database: env.DB_DATABASE ?? 'platform_admin',
     synchronize,
     ssl: env.DB_SSL === 'true',
+    source: 'DB_HOST',
   };
 }
 
