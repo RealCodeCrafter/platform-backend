@@ -28,6 +28,35 @@ function upstream(
   };
 }
 
+function databaseSettings(env: NodeJS.ProcessEnv) {
+  const synchronize = env.DB_SYNCHRONIZE !== 'false';
+  const connectionUrl = env.DATABASE_URL?.trim();
+  if (connectionUrl) {
+    const parsed = new URL(connectionUrl);
+    const host = parsed.hostname;
+    const internal = host.endsWith('.railway.internal');
+    return {
+      host,
+      port: parseInt(parsed.port || '5432', 10),
+      username: decodeURIComponent(parsed.username),
+      password: decodeURIComponent(parsed.password),
+      database: decodeURIComponent(parsed.pathname.replace(/^\//, '')),
+      synchronize,
+      ssl: !internal,
+    };
+  }
+
+  return {
+    host: env.DB_HOST ?? 'localhost',
+    port: parseInt(env.DB_PORT ?? '5433', 10),
+    username: env.DB_USERNAME ?? 'postgres',
+    password: env.DB_PASSWORD ?? 'postgres',
+    database: env.DB_DATABASE ?? 'platform_admin',
+    synchronize,
+    ssl: env.DB_SSL === 'true',
+  };
+}
+
 export default () => ({
   nodeEnv: process.env.NODE_ENV ?? 'development',
   port: parseInt(process.env.PORT ?? '4000', 10),
@@ -35,14 +64,7 @@ export default () => ({
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean),
-  db: {
-    host: process.env.DB_HOST ?? 'localhost',
-    port: parseInt(process.env.DB_PORT ?? '5433', 10),
-    username: process.env.DB_USERNAME ?? 'postgres',
-    password: process.env.DB_PASSWORD ?? 'postgres',
-    database: process.env.DB_DATABASE ?? 'platform_admin',
-    synchronize: process.env.DB_SYNCHRONIZE !== 'false',
-  },
+  db: databaseSettings(process.env),
   jwt: {
     accessSecret: process.env.JWT_ACCESS_SECRET,
     refreshSecret: process.env.JWT_REFRESH_SECRET,
